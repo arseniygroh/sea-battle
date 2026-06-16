@@ -1,5 +1,6 @@
+const cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+
 function generateBoardData() {
-    const cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
     const data = [];
 
     for (let row = 1; row <= 10; row++) {
@@ -51,6 +52,7 @@ function customizeCellFunction(cellStyle, cellData) {
 }
 
 let gameState = generateBoardData();
+console.log(gameState);
 
 const pivot = new WebDataRocks({
     container: "#pivotContainer",
@@ -83,3 +85,30 @@ const pivot = new WebDataRocks({
     },
     customizeCell: customizeCellFunction
 });
+
+function displayShip(startX, startY, length, isHorizontal) {
+    const startXIndex = cols.indexOf(startX);
+    if (isHorizontal && startXIndex + length > 10) {
+        return false;
+    }
+
+    if (!isHorizontal && startY + length - 1 > 10) {
+        return false;
+    }
+
+    for (let i = 0; i < length; i++) {
+        let currentX = isHorizontal ? cols[startXIndex + i] : startX;
+        let currentY = isHorizontal ? startY : startY + i;
+
+        let index = gameState.findIndex(obj => obj.x === currentX && obj.y === currentY);
+
+        gameState[index].state = 3;
+    }
+    pivot.updateData({data: gameState});
+    
+    return true;
+}
+
+setTimeout(() => {
+    displayShip("A", 1, 1, true);
+}, 100)
