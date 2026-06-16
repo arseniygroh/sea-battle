@@ -86,8 +86,7 @@ const pivot = new WebDataRocks({
     customizeCell: customizeCellFunction
 });
 
-function displayShip(startX, startY, length, isHorizontal) {
-    const startXIndex = cols.indexOf(startX);
+function canPlaceShip(startXIndex, startY, length, isHorizontal) {
     if (isHorizontal && startXIndex + length > 10) {
         return false;
     }
@@ -96,19 +95,73 @@ function displayShip(startX, startY, length, isHorizontal) {
         return false;
     }
 
+    let startCheckX = Math.max(0, startXIndex - 1);
+    let endCheckX = Math.min(9, isHorizontal ? startXIndex + length : startXIndex + 1);
+    let startCheckY = Math.max(1, startY - 1);
+    let endCheckY = Math.min(10, !isHorizontal ? startY + length : startY + 1);
+
+    for (let dy = startCheckY; dy <= endCheckY; dy++) {
+        for (let dx = startCheckX; dx <= endCheckX; dx++) {
+            let colName = cols[dx];
+            let index = gameState.findIndex(obj => obj.x === colName && obj.y === dy);
+            if (index !== -1 && gameState[index].state === 3) {
+                return false; 
+            }
+        }
+    }
+    
+    return true; 
+}
+
+
+function displayShip(startXIndex, startY, length, isHorizontal) {
     for (let i = 0; i < length; i++) {
-        let currentX = isHorizontal ? cols[startXIndex + i] : startX;
+        let currentX = isHorizontal ? cols[startXIndex + i] : cols[startXIndex];
         let currentY = isHorizontal ? startY : startY + i;
 
         let index = gameState.findIndex(obj => obj.x === currentX && obj.y === currentY);
 
         gameState[index].state = 3;
     }
-    pivot.updateData({data: gameState});
-    
-    return true;
 }
 
-setTimeout(() => {
-    displayShip("A", 1, 1, true);
-}, 100)
+function generateRandomFleet() {
+    const fleet = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1];
+    let success = false;
+
+    while (!success) {
+        gameState.forEach(cell => cell.state = 0);
+        let isStuck = false;
+
+        for (let length of fleet) {
+            let isPlaced = false;
+            let attempts = 0;
+
+            while (!isPlaced && attempts < 200) {
+                let randomXIndex = Math.floor(Math.random() * 10);
+                let randomY = Math.floor(Math.random() * 10) + 1;
+                let isHorizontal = Math.random() > 0.5;
+
+                if (canPlaceShip(randomXIndex, randomY, length, isHorizontal)) {
+                    displayShip(randomXIndex, randomY, length, isHorizontal);
+                    isPlaced = true;
+                }
+                attempts++;
+            }
+
+            if (!isPlaced) {
+                isStuck = true;
+                break; 
+            }
+        }
+        if (!isStuck) {
+            success = true;
+        }
+    }
+    pivot.updateData({ data: gameState });
+}
+
+pivot.on('reportcomplete', function() {
+    pivot.off('reportcomplete'); 
+    generateRandomFleet();
+});
