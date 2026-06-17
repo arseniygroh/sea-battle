@@ -1,3 +1,9 @@
+body {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+}
+
 .cell-water {
     background-color: rgb(0, 170, 255) !important;
 }
@@ -44,4 +50,11 @@
 }
 
 
+.wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-block: 40px;
+    gap: 80px;
+}
 
