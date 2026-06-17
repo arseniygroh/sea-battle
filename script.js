@@ -19,6 +19,7 @@ socket.on('gameStart', (data) => {
 });
 
 const cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+let fleetRegisty = new Map();
 
 function generateBoardData() {
     const data = [];
@@ -27,7 +28,8 @@ function generateBoardData() {
             data.push({
                 x: col,    
                 y: row,    
-                state: 0   // means water
+                state: 0,   // means water
+                shipId: null
             });
         }
     }
@@ -179,27 +181,54 @@ function canPlaceShip(startXIndex, startY, length, isHorizontal, currentState) {
     return true; 
 }
 
-function displayShip(startXIndex, startY, length, isHorizontal, currentState) {
+function displayShip(startXIndex, startY, length, isHorizontal, currentState, shipId, registry) {
+
+    if (registry) {
+        registry.set(shipId, {
+            length: length,
+            hits: 0,
+            coords: []
+        });
+    }
+
     for (let i = 0; i < length; i++) {
         let currentX = isHorizontal ? cols[startXIndex + i] : cols[startXIndex];
         let currentY = isHorizontal ? startY : startY + i;
 
         let index = currentState.findIndex(obj => obj.x === currentX && obj.y === currentY);
         currentState[index].state = 3;
+        currentState[index].shipId = shipId;
+
+        if (registry) {
+            registry.get(shipId).coords.push({
+                x: currentX, 
+                y: currentY
+            });
+        }
     }
 }
 
-function generateRandomFleet(currentState, pivotInstance) {
+function generateRandomFleet(currentState, pivotInstance, registry) {
     const fleet = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1];
     let success = false;
 
     while (!success) {
-        currentState.forEach(cell => cell.state = 0);
+        currentState.forEach(cell => {
+            cell.state = 0;
+            cell.shipId = null;
+        });
+        if (registry) {
+            registry.clear();
+        }
+
         let isStuck = false;
+        let shipCounter = 0;
 
         for (let length of fleet) {
             let isPlaced = false;
             let attempts = 0;
+            shipCounter++;
+            let currentShipId = 'ship_' + shipCounter;
 
             while (!isPlaced && attempts < 200) {
                 let randomXIndex = Math.floor(Math.random() * 10);
@@ -207,7 +236,7 @@ function generateRandomFleet(currentState, pivotInstance) {
                 let isHorizontal = Math.random() > 0.5;
 
                 if (canPlaceShip(randomXIndex, randomY, length, isHorizontal, currentState)) {
-                    displayShip(randomXIndex, randomY, length, isHorizontal, currentState);
+                    displayShip(randomXIndex, randomY, length, isHorizontal, currentState, currentShipId, registry);
                     isPlaced = true;
                 }
                 attempts++;
@@ -227,13 +256,13 @@ function generateRandomFleet(currentState, pivotInstance) {
 
 pivot.on('reportcomplete', function() {
     pivot.off('reportcomplete'); 
-    generateRandomFleet(gameState, pivot); 
+    generateRandomFleet(gameState, pivot, fleetRegisty);
 });
 
-// enemyPivot.on('reportcomplete', function() {
-//     enemyPivot.off('reportcomplete');
-//     generateRandomFleet(enemyGameState, enemyPivot);
-// });
+enemyPivot.on('reportcomplete', function() {
+    enemyPivot.off('reportcomplete');
+    // generateRandomFleet(enemyGameState, enemyPivot, null); 
+});
 
 function handleCellClick(cell) {
     if (!isMyTurn) return;
@@ -257,6 +286,8 @@ enemyPivot.on("cellclick", handleCellClick)
 socket.on('incomingFire', (coords) => {
     const targetCell = gameState.find(obj => obj.x === coords.x && obj.y === coords.y);
     let isHit = false; 
+    let isSunk = false;      
+    let sunkCoords = [];
         
     if (targetCell.state === 0) {
         targetCell.state = 1; // means miss
@@ -265,7 +296,16 @@ socket.on('incomingFire', (coords) => {
     } else if (targetCell.state === 3) {
         targetCell.state = 2; // means hit
         isHit = true;
-        turnDiv.textContent = "Enemy hit your ship, it is still enemy's turn";       
+        turnDiv.textContent = "Enemy hit your ship, it is still enemy's turn";      
+        
+        let ship = fleetRegisty.get(targetCell.shipId); 
+        ship.hits++;
+
+        if (ship.hits === ship.length) {
+            isSunk = true;
+            sunkCoords = ship.coords;
+            turnDiv.textContent = "Enemy sunk your ship! Still enemy's turn";
+        }
     }
     
     pivot.updateData({data: gameState});
@@ -273,7 +313,9 @@ socket.on('incomingFire', (coords) => {
     socket.emit('fireReply', {
         x: coords.x,
         y: coords.y,
-        isHit: isHit
+        isHit: isHit,
+        isSunk: isSunk,
+        sunkCoords: sunkCoords,
     });
 });
 
@@ -284,6 +326,64 @@ socket.on('fireReply', result => {
         targetCell.state = 2;
         isMyTurn = true;
         turnDiv.textContent = "You hit, it is still your turn";
+        if (result.isSunk) {
+            const ys = result.sunkCoords.map(obj => obj.y);
+            const isHorizontal = new Set(ys).size === 1;
+            if (isHorizontal) {
+                result.sunkCoords.sort((a, b) => cols.indexOf(a.x) - cols.indexOf(b.x));
+            } else {
+                result.sunkCoords.sort((a, b) => a.y - b.y);
+            }
+    
+            const markMiss = (xIdx, y) => {
+                if (xIdx >= 0 && xIdx <= 9 && y >= 1 && y <= 10) {
+                    let cell = enemyGameState.find(obj => obj.x === cols[xIdx] && obj.y === y);
+                    if (cell && cell.state === 0) {
+                        cell.state = 1; 
+                    }
+                }
+            };
+    
+            for (let i = 0; i < result.sunkCoords.length; i++) {
+                const coordObj = result.sunkCoords[i];
+                console.log(coordObj);
+                let xIndex = cols.indexOf(coordObj.x);
+                let yIndex = Number(coordObj.y);
+                console.log(xIndex, yIndex);
+                
+                if (isHorizontal) {
+                    markMiss(xIndex, yIndex - 1);
+                    markMiss(xIndex, yIndex + 1);
+    
+                    if (i === 0) {
+                        markMiss(xIndex - 1, yIndex - 1);
+                        markMiss(xIndex - 1, yIndex);
+                        markMiss(xIndex - 1, yIndex + 1);
+                    }
+    
+                    if (i === result.sunkCoords.length - 1) {
+                        markMiss(xIndex + 1, yIndex - 1);
+                        markMiss(xIndex + 1, yIndex);
+                        markMiss(xIndex + 1, yIndex + 1);
+                    }
+                } else {
+                    markMiss(xIndex - 1, yIndex);
+                    markMiss(xIndex + 1, yIndex);
+    
+                    if (i === 0) {
+                        markMiss(xIndex - 1, yIndex - 1);
+                        markMiss(xIndex, yIndex - 1);
+                        markMiss(xIndex + 1, yIndex - 1);
+                    }
+                    if (i === result.sunkCoords.length - 1) {
+                        markMiss(xIndex - 1, yIndex + 1);
+                        markMiss(xIndex, yIndex + 1);
+                        markMiss(xIndex + 1, yIndex + 1);
+                    }
+                }
+    
+            }
+        }
     } else {
         targetCell.state = 1;
         turnDiv.textContent = "You missed, it is now enemy's turn";
