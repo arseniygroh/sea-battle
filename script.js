@@ -1,3 +1,9 @@
+const socket = io();
+
+socket.on('connect', () => {
+    console.log(`Connection is estabilished: ${socket.id}`);
+});
+
 const cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
 
 function generateBoardData() {
