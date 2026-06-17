@@ -1,6 +1,11 @@
 const socket = io();
 let isMyTurn = false;
+let enemyShipsSunk = 0;
+let myShipsSunk = 0;
 const turnDiv = document.querySelector(".turn");
+const myScore = document.querySelector("#my-score span");
+const enemyScore = document.querySelector("#enemy span");
+turnDiv.style.display = "none";
 socket.on('serverFull', () => {
     alert("Server is full");
 });
@@ -11,6 +16,7 @@ socket.on('connect', () => {
 
 socket.on('gameStart', (data) => {
     isMyTurn = data.isYourTurn;
+    turnDiv.style.display = "block";
     if (isMyTurn) {
         turnDiv.textContent = "Game started, it is your turn";
     } else {
@@ -304,7 +310,15 @@ socket.on('incomingFire', (coords) => {
         if (ship.hits === ship.length) {
             isSunk = true;
             sunkCoords = ship.coords;
-            turnDiv.textContent = "Enemy sunk your ship! Still enemy's turn";
+            myShipsSunk++;
+            enemyScore.textContent = myShipsSunk;
+            console.log(enemyScore.textContent);
+            if (myShipsSunk === 10) {
+                turnDiv.textContent = "All your ships are destroyed. GAME OVER";
+                isMyTurn = false;
+            } else {
+                turnDiv.textContent = 'Enemy sunk your ship!';
+            }
         }
     }
     
@@ -327,6 +341,15 @@ socket.on('fireReply', result => {
         isMyTurn = true;
         turnDiv.textContent = "You hit, it is still your turn";
         if (result.isSunk) {
+            enemyShipsSunk++;
+            myScore.textContent = enemyShipsSunk;
+            console.log(myScore.textContent);
+            if (enemyShipsSunk === 10) {
+                turnDiv.textContent = "You destroyed all enemy ships. You WON";
+                isMyTurn = false;
+            } else {
+                turnDiv.textContent = "You sunk an enemy ship! It's still your turn";
+            }
             const ys = result.sunkCoords.map(obj => obj.y);
             const isHorizontal = new Set(ys).size === 1;
             if (isHorizontal) {
