@@ -10,9 +10,22 @@
     <script src="https://cdn.webdatarocks.com/latest/webdatarocks.js"></script>
 </head>
 <body>
+    <div class="game-status">
+        <div class="turn"></div>
+        <div class="scores">
+            <div class="score" id="my-score">My score: <span>0</span></div>
+            <div class="score" id="enemy">Enemy score: <span>0</span></div>
+        </div>
+    </div>
     <div class="battlefield-wrapper">
-        <div id="pivotContainer"></div>
-        <div id="enemyPivotContainer"></div>
+        <div class="table-wrapper">
+            <h1>YOU</h1>
+            <div id="pivotContainer"></div>
+        </div>
+        <div class="table-wrapper">
+            <h1>ENEMY</h1>
+            <div id="enemyPivotContainer"></div>
+        </div>
     </div>
     <script src="/socket.io/socket.io.js"></script>
     <script src="script.js" defer></script>

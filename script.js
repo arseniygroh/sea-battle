@@ -1,11 +1,21 @@
 const socket = io();
-
+let isMyTurn = false;
+const turnDiv = document.querySelector(".turn");
 socket.on('serverFull', () => {
     alert("Server is full");
 });
 
 socket.on('connect', () => {
     console.log(`Connection is estabilished: ${socket.id}`);
+});
+
+socket.on('gameStart', (data) => {
+    isMyTurn = data.isYourTurn;
+    if (isMyTurn) {
+        turnDiv.textContent = "Game started, it is your turn";
+    } else {
+        turnDiv.textContent = "Game started, it is enemy's turn";
+    }
 });
 
 const cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
@@ -226,11 +236,14 @@ pivot.on('reportcomplete', function() {
 // });
 
 function handleCellClick(cell) {
+    if (!isMyTurn) return;
+
     if ((cell.rowIndex < 2 || cell.rowIndex > 11) || cell.type === "header") return;
     if ((cell.columnIndex < 1 || cell.columnIndex > 10) || cell.type === "header") return;
     const targetCol = cell.columns[0].caption;
     const targetRow = +cell.rows[0].caption;
 
+    isMyTurn = false;
     socket.emit('fire', {
         x: targetCol, 
         y: targetRow
@@ -247,12 +260,15 @@ socket.on('incomingFire', (coords) => {
         
     if (targetCell.state === 0) {
         targetCell.state = 1; // means miss
+        isMyTurn = true;
+        turnDiv.textContent = "Enemy missed, it is now your turn";
     } else if (targetCell.state === 3) {
         targetCell.state = 2; // means hit
-        isHit = true;       
+        isHit = true;
+        turnDiv.textContent = "Enemy hit your ship, it is still enemy's turn";       
     }
     
-    pivot.updateData({ data: gameState });
+    pivot.updateData({data: gameState});
 
     socket.emit('fireReply', {
         x: coords.x,
@@ -263,13 +279,16 @@ socket.on('incomingFire', (coords) => {
 
 socket.on('fireReply', result => {
     const targetCell = enemyGameState.find(obj => obj.x === result.x && obj.y === result.y);
-    
+
     if (result.isHit) {
         targetCell.state = 2;
+        isMyTurn = true;
+        turnDiv.textContent = "You hit, it is still your turn";
     } else {
         targetCell.state = 1;
+        turnDiv.textContent = "You missed, it is now enemy's turn";
     }
 
-    enemyPivot.updateData({ data: enemyGameState });
+    enemyPivot.updateData({data: enemyGameState});
 });
 

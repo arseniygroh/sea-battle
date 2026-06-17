@@ -21,6 +21,11 @@ io.on('connection', socket => {
     players.push(socket.id);
     console.log(`New player has connected: ${socket.id}`);
 
+    if (players.length === 2) {
+        io.to(players[0]).emit('gameStart', {isYourTurn: true});
+        io.to(players[1]).emit('gameStart', {isYourTurn: false});
+    }
+
     socket.on("fire", coords => {
         socket.broadcast.emit('incomingFire', coords);
     });
