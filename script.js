@@ -1,5 +1,9 @@
 const socket = io();
 
+socket.on('serverFull', () => {
+    alert("Server is full");
+});
+
 socket.on('connect', () => {
     console.log(`Connection is estabilished: ${socket.id}`);
 });
@@ -216,24 +220,56 @@ pivot.on('reportcomplete', function() {
     generateRandomFleet(gameState, pivot); 
 });
 
-enemyPivot.on('reportcomplete', function() {
-    enemyPivot.off('reportcomplete');
-    generateRandomFleet(enemyGameState, enemyPivot);
-});
+// enemyPivot.on('reportcomplete', function() {
+//     enemyPivot.off('reportcomplete');
+//     generateRandomFleet(enemyGameState, enemyPivot);
+// });
 
 function handleCellClick(cell) {
     if ((cell.rowIndex < 2 || cell.rowIndex > 11) || cell.type === "header") return;
     if ((cell.columnIndex < 1 || cell.columnIndex > 10) || cell.type === "header") return;
     const targetCol = cell.columns[0].caption;
     const targetRow = +cell.rows[0].caption;
-    const targetCell = enemyGameState.find(obj => obj.x === targetCol && obj.y === targetRow);
-    
+
+    socket.emit('fire', {
+        x: targetCol, 
+        y: targetRow
+    });
+
+}
+
+
+enemyPivot.on("cellclick", handleCellClick)
+
+socket.on('incomingFire', (coords) => {
+    const targetCell = gameState.find(obj => obj.x === coords.x && obj.y === coords.y);
+    let isHit = false; 
+        
     if (targetCell.state === 0) {
         targetCell.state = 1; // means miss
     } else if (targetCell.state === 3) {
         targetCell.state = 2; // means hit
+        isHit = true;       
     }
-    enemyPivot.updateData({data: enemyGameState});
-}
+    
+    pivot.updateData({ data: gameState });
 
-enemyPivot.on("cellclick", handleCellClick)
+    socket.emit('fireReply', {
+        x: coords.x,
+        y: coords.y,
+        isHit: isHit
+    });
+});
+
+socket.on('fireReply', result => {
+    const targetCell = enemyGameState.find(obj => obj.x === result.x && obj.y === result.y);
+    
+    if (result.isHit) {
+        targetCell.state = 2;
+    } else {
+        targetCell.state = 1;
+    }
+
+    enemyPivot.updateData({ data: enemyGameState });
+});
+
