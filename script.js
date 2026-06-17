@@ -214,3 +214,20 @@ enemyPivot.on('reportcomplete', function() {
     enemyPivot.off('reportcomplete');
     generateRandomFleet(enemyGameState, enemyPivot);
 });
+
+function handleCellClick(cell) {
+    if ((cell.rowIndex < 2 || cell.rowIndex > 11) || cell.type === "header") return;
+    if ((cell.columnIndex < 1 || cell.columnIndex > 10) || cell.type === "header") return;
+    const targetCol = cell.columns[0].caption;
+    const targetRow = +cell.rows[0].caption;
+    const targetCell = enemyGameState.find(obj => obj.x === targetCol && obj.y === targetRow);
+    
+    if (targetCell.state === 0) {
+        targetCell.state = 1; // means miss
+    } else if (targetCell.state === 3) {
+        targetCell.state = 2; // means hit
+    }
+    enemyPivot.updateData({data: enemyGameState});
+}
+
+enemyPivot.on("cellclick", handleCellClick)
