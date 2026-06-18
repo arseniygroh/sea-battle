@@ -40,6 +40,10 @@ io.on('connection', socket => {
             players.splice(index, 1);
         }
         console.log(`Player has disconnected: ${socket.id}`);
+
+        if (players.length === 1) {
+            io.to(players[0]).emit('opponentLeft'); 
+        }
     });
 });
 

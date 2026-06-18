@@ -2,10 +2,9 @@ const socket = io();
 let isMyTurn = false;
 let enemyShipsSunk = 0;
 let myShipsSunk = 0;
-const turnDiv = document.querySelector(".turn");
+const gameStatusMsg = document.querySelector(".game-status-msg");
 const myScore = document.querySelector("#my-score span");
 const enemyScore = document.querySelector("#enemy span");
-turnDiv.style.display = "none";
 socket.on('serverFull', () => {
     alert("Server is full");
 });
@@ -16,11 +15,10 @@ socket.on('connect', () => {
 
 socket.on('gameStart', (data) => {
     isMyTurn = data.isYourTurn;
-    turnDiv.style.display = "block";
     if (isMyTurn) {
-        turnDiv.textContent = "Game started, it is your turn";
+        gameStatusMsg.textContent = "Game started, it is your turn";
     } else {
-        turnDiv.textContent = "Game started, it is enemy's turn";
+        gameStatusMsg.textContent = "Game started, it is enemy's turn";
     }
 });
 
@@ -298,11 +296,11 @@ socket.on('incomingFire', (coords) => {
     if (targetCell.state === 0) {
         targetCell.state = 1; // means miss
         isMyTurn = true;
-        turnDiv.textContent = "Enemy missed, it is now your turn";
+        gameStatusMsg.textContent = "Enemy missed, it is now your turn";
     } else if (targetCell.state === 3) {
         targetCell.state = 2; // means hit
         isHit = true;
-        turnDiv.textContent = "Enemy hit your ship, it is still enemy's turn";      
+        gameStatusMsg.textContent = "Enemy hit your ship, it is still enemy's turn";      
         
         let ship = fleetRegisty.get(targetCell.shipId); 
         ship.hits++;
@@ -314,10 +312,10 @@ socket.on('incomingFire', (coords) => {
             enemyScore.textContent = myShipsSunk;
             console.log(enemyScore.textContent);
             if (myShipsSunk === 10) {
-                turnDiv.textContent = "All your ships are destroyed. GAME OVER";
+                gameStatusMsg.textContent = "All your ships are destroyed. GAME OVER";
                 isMyTurn = false;
             } else {
-                turnDiv.textContent = 'Enemy sunk your ship!';
+                gameStatusMsg.textContent = 'Enemy sunk your ship!';
             }
         }
     }
@@ -339,16 +337,16 @@ socket.on('fireReply', result => {
     if (result.isHit) {
         targetCell.state = 2;
         isMyTurn = true;
-        turnDiv.textContent = "You hit, it is still your turn";
+        gameStatusMsg.textContent = "You hit, it is still your turn";
         if (result.isSunk) {
             enemyShipsSunk++;
             myScore.textContent = enemyShipsSunk;
             console.log(myScore.textContent);
             if (enemyShipsSunk === 10) {
-                turnDiv.textContent = "You destroyed all enemy ships. You WON";
+                gameStatusMsg.textContent = "You destroyed all enemy ships. You WON";
                 isMyTurn = false;
             } else {
-                turnDiv.textContent = "You sunk an enemy ship! It's still your turn";
+                gameStatusMsg.textContent = "You sunk an enemy ship! It's still your turn";
             }
             const ys = result.sunkCoords.map(obj => obj.y);
             const isHorizontal = new Set(ys).size === 1;
@@ -409,9 +407,25 @@ socket.on('fireReply', result => {
         }
     } else {
         targetCell.state = 1;
-        turnDiv.textContent = "You missed, it is now enemy's turn";
+        gameStatusMsg.textContent = "You missed, it is now enemy's turn";
     }
 
     enemyPivot.updateData({data: enemyGameState});
 });
 
+socket.on('opponentLeft', () => {
+    alert("Opponent has left");
+
+    enemyShipsSunk = 0;
+    myShipsSunk = 0;
+    myScore.textContent = "0";
+    enemyScore.textContent = "0";
+    isMyTurn = false;
+    gameStatusMsg.textContent = "Waiting for new opponent...";
+    generateRandomFleet(gameState, pivot, fleetRegisty); 
+    enemyGameState.forEach(cell => {
+        cell.state = 0;
+        cell.shipId = null;
+    });
+    enemyPivot.updateData({data: enemyGameState});
+});
